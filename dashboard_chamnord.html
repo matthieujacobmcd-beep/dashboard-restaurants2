@@ -224,11 +224,58 @@ tr:hover td{background:#f7faff}
 
 @keyframes spin { to { transform:rotate(360deg) } }
 .syncing { animation: spin 1s linear infinite; }
+
+/* ── LOGIN ── */
+#login-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:#f5f5f2;
+  display:flex;align-items:center;justify-content:center;
+}
+.login-box{
+  background:#fff;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,.12);
+  padding:40px 44px;width:360px;text-align:center;
+}
+.login-logo{font-size:36px;margin-bottom:8px}
+.login-title{font-size:20px;font-weight:700;color:#2C2C2A;margin-bottom:4px}
+.login-sub{font-size:13px;color:#888;margin-bottom:28px}
+.login-input{
+  width:100%;border:1.5px solid rgba(0,0,0,.12);border-radius:10px;
+  padding:12px 16px;font-size:14px;color:#2C2C2A;
+  outline:none;transition:border .15s;margin-bottom:14px;
+  text-align:center;letter-spacing:3px;
+}
+.login-input:focus{border-color:#185FA5}
+.login-btn{
+  width:100%;background:#185FA5;color:#fff;border:none;
+  border-radius:10px;padding:13px;font-size:14px;font-weight:700;
+  cursor:pointer;transition:background .15s;
+}
+.login-btn:hover{background:#378ADD}
+.login-error{
+  color:#A32D2D;font-size:12px;font-weight:600;
+  margin-top:10px;display:none;
+}
+.login-footer{font-size:11px;color:#ccc;margin-top:20px}
 </style>
 </head>
 <body>
 
 <!-- SIDEBAR -->
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🍽</div>
+    <div class="login-title">RestoGroup</div>
+    <div class="login-sub">Accès sécurisé — Dashboard Restauration</div>
+    <input class="login-input" type="password" id="pwd-input" placeholder="Mot de passe" 
+           onkeydown="if(event.key==='Enter')checkPwd()">
+    <button class="login-btn" onclick="checkPwd()">Accéder au dashboard</button>
+    <div class="login-error" id="login-error">❌ Mot de passe incorrect</div>
+    <div class="login-footer">© RestoGroup 2026</div>
+  </div>
+</div>
+
 <aside class="sidebar">
   <div class="sidebar-logo"><span style="font-size:20px">🍽</span> <span style="color:#185FA5">Resto</span>Group</div>
 
@@ -1396,6 +1443,43 @@ function popupRS(vue, moisFilter) {
   document.body.style.overflow='hidden';
 }
 
+// ── PROTECTION MOT DE PASSE ──
+// Mot de passe stocké en hash SHA-256 (jamais en clair)
+const PWD_HASH = 'e0cc832d9516bed1ace694a083a350b21932dc3ed24a4ac14cabd6f6e97402d1';
+
+async function hashPwd(pwd) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPwd() {
+  const input = document.getElementById('pwd-input').value;
+  const hash  = await hashPwd(input);
+  if (hash === PWD_HASH) {
+    // Stocker en session (expire à la fermeture du navigateur)
+    sessionStorage.setItem('auth', hash);
+    document.getElementById('login-screen').style.display = 'none';
+    loadFromOneDrive();
+  } else {
+    const err = document.getElementById('login-error');
+    err.style.display = 'block';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+    setTimeout(() => err.style.display='none', 3000);
+  }
+}
+
+// Vérifier si déjà authentifié dans cette session
+function checkSession() {
+  const saved = sessionStorage.getItem('auth');
+  if (saved === PWD_HASH) {
+    document.getElementById('login-screen').style.display = 'none';
+    loadFromOneDrive();
+  }
+  // Sinon l'écran de login reste visible
+}
+
+
 // ════════════════════════════════════
 // CHARGEMENT AUTOMATIQUE ONEDRIVE
 // ════════════════════════════════════
@@ -1512,11 +1596,16 @@ async function loadFromOneDrive() {
   setSyncStatus('loading', 'Connexion OneDrive…');
 
   // Plusieurs URLs à essayer dans l'ordre
+  const DIRECT_URL = 'https://1drv.ms/u/c/5f2daaf98e29d4c7/IQBiZP8WRRKfSIgx1_v0ApkgAU8KLXFdLtt-whGeBgOI2kE?e=Lzbbaz&download=1';
   const URLS = [
-    // URL directe OneDrive avec download forcé
-    'https://1drv.ms/u/c/5f2daaf98e29d4c7/IQBiZP8WRRKfSIgx1_v0ApkgAU8KLXFdLtt-whGeBgOI2kE?e=Lzbbaz&download=1',
-    // Proxy CORS public (contourne les restrictions navigateur)
-    'https://corsproxy.io/?' + encodeURIComponent('https://1drv.ms/u/c/5f2daaf98e29d4c7/IQBiZP8WRRKfSIgx1_v0ApkgAU8KLXFdLtt-whGeBgOI2kE?e=Lzbbaz&download=1'),
+    // 1. Proxy allorigins (très fiable, supporte CORS)
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(DIRECT_URL),
+    // 2. Proxy corsproxy.io
+    'https://corsproxy.io/?' + encodeURIComponent(DIRECT_URL),
+    // 3. Proxy cors.sh
+    'https://proxy.cors.sh/' + DIRECT_URL,
+    // 4. Direct (fonctionne si OneDrive autorise CORS)
+    DIRECT_URL,
   ];
 
   let lastErr = null;
@@ -1548,7 +1637,7 @@ async function loadFromOneDrive() {
 }
 
 
-loadFromOneDrive();
+checkSession();
 </script>
 </body>
 </html>
