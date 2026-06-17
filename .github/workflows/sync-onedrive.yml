@@ -1,0 +1,48 @@
+name: Sync OneDrive Excel
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Toutes les heures automatiquement
+  workflow_dispatch:       # Bouton manuel disponible sur GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Excel from OneDrive
+        run: |
+          curl -L "https://1drv.ms/u/c/5f2daaf98e29d4c7/IQBiZP8WRRKfSIgx1_v0ApkgAU8KLXFdLtt-whGeBgOI2kE?e=Lzbbaz&download=1" \
+            -o TABLEUR_-_GITHUB.xlsx \
+            --max-time 60 \
+            --retry 5 \
+            --retry-delay 3 \
+            -H "User-Agent: Mozilla/5.0"
+
+      - name: Verify download
+        run: |
+          SIZE=$(wc -c < TABLEUR_-_GITHUB.xlsx)
+          echo "Taille fichier: $SIZE octets"
+          if [ "$SIZE" -lt 50000 ]; then
+            echo "Fichier trop petit - échec du téléchargement"
+            cat TABLEUR_-_GITHUB.xlsx
+            exit 1
+          fi
+          echo "✅ Fichier OK"
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "Sync Bot"
+          git config user.email "sync@dashboard.local"
+          git add TABLEUR_-_GITHUB.xlsx
+          if git diff --staged --quiet; then
+            echo "Aucun changement détecté"
+          else
+            git commit -m "🔄 Sync Excel depuis OneDrive - $(date '+%d/%m/%Y %H:%M')"
+            git push
+            echo "✅ Mis à jour sur GitHub"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
