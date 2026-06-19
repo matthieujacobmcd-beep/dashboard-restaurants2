@@ -589,51 +589,66 @@ function renderKPI() {
 }
 
 function renderOepeKPI() {
-  var d = OEPE.annuel;
-  var diff = d.diff;
-  var sign = diff <= 0 ? '▼ ' : '▲ +';
-  var cls  = diff <= 0 ? 'up' : 'dn';
-  document.getElementById('kv-oepe').textContent = d.an26 + 's';
-  document.getElementById('kc-oepe').textContent = '2025 : ' + d.an25 + 's';
-  var bd = document.getElementById('kb-oepe');
-  bd.textContent = sign + Math.abs(diff) + 's';
-  bd.className = 'kpi-badge ' + cls;
+  try {
+    var d = OEPE.annuel;
+    if (!d || d.an26 == null) return;
+    var diff = d.diff || 0;
+    var sign = diff <= 0 ? '▼ ' : '▲ +';
+    var cls  = diff <= 0 ? 'up' : 'dn';
+    document.getElementById('kv-oepe').textContent = d.an26 + 's';
+    document.getElementById('kc-oepe').textContent = '2025 : ' + (d.an25 || '—') + 's';
+    var bd = document.getElementById('kb-oepe');
+    bd.textContent = sign + Math.abs(diff) + 's';
+    bd.className = 'kpi-badge ' + cls;
+  } catch(e) { console.warn('renderOepeKPI:', e); }
 }
 function renderR2PKPI() {
-  var d = R2P.annuel;
-  var diff = d.diff;
-  document.getElementById('kv-r2p').textContent = d.an26 + 's';
-  document.getElementById('kc-r2p').textContent = '2025 : ' + d.an25 + 's';
-  var bd = document.getElementById('kb-r2p');
-  bd.textContent = (diff<=0?'▼ ':'▲ +') + Math.abs(diff) + 's';
-  bd.className = 'kpi-badge ' + (diff<=0?'up':'dn');
+  try {
+    var d = R2P.annuel;
+    if (!d || d.an26 == null) return;
+    var diff = d.diff || 0;
+    document.getElementById('kv-r2p').textContent = d.an26 + 's';
+    document.getElementById('kc-r2p').textContent = '2025 : ' + (d.an25 || '—') + 's';
+    var bd = document.getElementById('kb-r2p');
+    bd.textContent = (diff<=0?'▼ ':'▲ +') + Math.abs(diff) + 's';
+    bd.className = 'kpi-badge ' + (diff<=0?'up':'dn');
+  } catch(e) { console.warn('renderR2PKPI:', e); }
 }
 function renderOPHKPI() {
-  var d = OPH.annuel;
-  var diff = d.diff;
-  document.getElementById('kv-oph').textContent = Math.round(d.an26);
-  document.getElementById('kc-oph').textContent = '2025 : ' + Math.round(d.an25);
-  var bd = document.getElementById('kb-oph');
-  bd.textContent = (diff<=0?'▼ ':'▲ +') + Math.round(Math.abs(diff));
-  bd.className = 'kpi-badge ' + (diff<=0?'up':'dn');
+  try {
+    var d = OPH.annuel;
+    if (!d || d.an26 == null) return;
+    var diff = d.diff || 0;
+    document.getElementById('kv-oph').textContent = Math.round(d.an26);
+    document.getElementById('kc-oph').textContent = '2025 : ' + Math.round(d.an25 || 0);
+    var bd = document.getElementById('kb-oph');
+    bd.textContent = (diff<=0?'▼ ':'▲ +') + Math.round(Math.abs(diff));
+    bd.className = 'kpi-badge ' + (diff<=0?'up':'dn');
+  } catch(e) { console.warn('renderOPHKPI:', e); }
 }
 function renderHELLOKPI() {
-  var d = HELLO.annuel;
-  var diff = d.diff;
-  document.getElementById('kv-hello').textContent = d.an26 + '%';
-  document.getElementById('kc-hello').textContent = '2025 : ' + d.an25 + '%';
-  var bd = document.getElementById('kb-hello');
-  bd.textContent = (diff>=0?'▲ +':'▼ ') + Math.abs(diff).toFixed(1) + '%';
-  bd.className = 'kpi-badge ' + (diff>=0?'up':'dn');
+  try {
+    var d = HELLO.annuel;
+    if (!d || d.an26 == null) return;
+    var diff = d.diff || 0;
+    document.getElementById('kv-hello').textContent = d.an26 + '%';
+    document.getElementById('kc-hello').textContent = '2025 : ' + (d.an25 || '—') + '%';
+    var bd = document.getElementById('kb-hello');
+    bd.textContent = (diff>=0?'▲ +':'▼ ') + Math.abs(diff).toFixed(1) + '%';
+    bd.className = 'kpi-badge ' + (diff>=0?'up':'dn');
+  } catch(e) { console.warn('renderHELLOKPI:', e); }
 }
 function renderRSKPI() {
-  var d = RS.annuel;
-  var diff = d.diff;
-  document.getElementById('kv-rs').textContent = d.an26.toFixed(2);
-  document.getElementById('kc-rs').textContent = '2025 : ' + d.an25.toFixed(2);
-  var bd = document.getElementById('kb-rs');
-  bd.textContent = (diff>=0?'▲ +':'▼ ') + Math.abs(diff).toFixed(2);
-  bd.className = 'kpi-badge ' + (diff>=0?'up':'dn');
+  try {
+    var d = RS.annuel;
+    if (!d || d.an26 == null) return;
+    var diff = d.diff || 0;
+    document.getElementById('kv-rs').textContent = parseFloat(d.an26).toFixed(2);
+    document.getElementById('kc-rs').textContent = '2025 : ' + parseFloat(d.an25).toFixed(2);
+    var bd = document.getElementById('kb-rs');
+    bd.textContent = (diff>=0?'▲ +':'▼ ') + Math.abs(diff).toFixed(2);
+    bd.className = 'kpi-badge ' + (diff>=0?'up':'dn');
+  } catch(e) { console.warn('renderRSKPI:', e); }
 }
 
 // ════════════════════ POPUP PRINCIPAL ════════════════════
@@ -1061,7 +1076,7 @@ function xlsxImport(e) {
     try {
       parseExcel(ev.target.result, function(newRows, newKpi) {
         if (!newRows || newRows.length === 0) {
-          msg.textContent='❌ Aucune donnée trouvée.'; return;
+          msg.textContent='❌ Aucune donnée trouvée dans la feuille CHAMNORD.'; return;
         }
         // Mettre à jour le restaurant actuellement sélectionné
         var r = RESTAURANTS_REGISTRY[currentResto];
