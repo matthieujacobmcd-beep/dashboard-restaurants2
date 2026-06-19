@@ -1133,9 +1133,10 @@ function parseExcel(arrayBuffer, callback) {
   var r1 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*1000)/10:null;}catch(e){return null;}};
 
   function parseSheet(ws) {
-    // raw:true + cellDates:false → dates = numéros série Excel (ex: 46023 = 1/1/2026)
+    // XLSX.js 0-indexed : tous les indices = openpyxl_colonne - 1
+    // date=col A(0), ca25=col B(1)... car XLSX.js voit la col A contrairement à openpyxl
     var raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
-    
+
     var fn = function(x) {
       if (x == null) return null;
       var n = parseFloat(x);
@@ -1153,82 +1154,64 @@ function parseExcel(arrayBuffer, callback) {
         var d = new Date(Date.UTC(1899, 11, 30) + x * 86400000);
         return d.getFullYear() >= 2000 ? d.toISOString().slice(0,10) : null;
       }
-      // Objet Date JS (fallback)
-      if (x instanceof Date || typeof x.getTime === 'function') {
-        return x.getFullYear() >= 2000 ? x.toISOString().slice(0,10) : null;
-      }
-      // String
-      if (typeof x === 'string') {
-        var d2 = new Date(x);
-        return (!isNaN(d2.getTime()) && d2.getFullYear() >= 2000) ? d2.toISOString().slice(0,10) : null;
-      }
+      if (x instanceof Date) return x.getFullYear() >= 2000 ? x.toISOString().slice(0,10) : null;
+      if (typeof x === 'string') { var d2=new Date(x); return !isNaN(d2)&&d2.getFullYear()>=2000?d2.toISOString().slice(0,10):null; }
       return null;
     };
 
     var newRows = [];
-    // Log pour debug : voir les 3 premières valeurs de date
-    if (raw[3]) console.log('raw[3][1]:', raw[3][1], 'type:', typeof raw[3][1], JSON.stringify(raw[3][1]));
-    if (raw[4]) console.log('raw[4][1]:', raw[4][1], 'type:', typeof raw[4][1]);
     for (var i = 3; i < raw.length; i++) {
       var r = raw[i];
-      if (!r || r[1] == null) continue;
-      var dateStr = fmtDate(r[1]);
+      if (!r || r[0] == null) continue;
+      var dateStr = fmtDate(r[0]);  // col A = index 0
       if (!dateStr) continue;
       newRows.push({
         date: dateStr,
-        tot_jour_25:fn(r[2]),  tot_jour_26:fn(r[4]),  tot_jour_pct:fn(r[5]),
-        tot_sem_lbl:r[6]?String(r[6]):null,  tot_sem_25:fn(r[7]),  tot_sem_26:fn(r[8]),
-        tot_mois_lbl:r[10]?String(r[10]):null, tot_mois_25:fn(r[11]), tot_mois_26:fn(r[12]),
-        tot_an_25:fn(r[15]), tot_an_26:fn(r[16]), tot_an_pct:fn(r[17]),
-        alim_jour_25:fn(r[20]), alim_jour_26:fn(r[22]),
-        alim_sem_lbl:r[24]?String(r[24]):null, alim_sem_25:fn(r[25]), alim_sem_26:fn(r[26]),
-        alim_mois_lbl:r[28]?String(r[28]):null, alim_mois_25:fn(r[29]), alim_mois_26:fn(r[30]),
-        alim_an_25:fn(r[33]), alim_an_26:fn(r[34]), alim_an_pct:fn(r[35]),
-        tac_jour_25:fi(r[38]), tac_jour_26:fi(r[40]),
-        tac_sem_lbl:r[42]?String(r[42]):null, tac_sem_25:fi(r[43]), tac_sem_26:fi(r[44]),
-        tac_mois_lbl:r[46]?String(r[46]):null, tac_mois_25:fi(r[47]), tac_mois_26:fi(r[48]),
-        tac_an_25:fi(r[51]), tac_an_26:fi(r[52]), tac_an_pct:fn(r[53]),
-        pm_jour_25:fn(r[56]), pm_jour_26:fn(r[58]),
-        pm_sem_lbl:r[60]?String(r[60]):null, pm_sem_25:fn(r[61]), pm_sem_26:fn(r[62]),
-        pm_mois_lbl:r[64]?String(r[64]):null, pm_mois_25:fn(r[65]), pm_mois_26:fn(r[66]),
-        pm_an_25:fn(r[69]), pm_an_26:fn(r[70]), pm_an_pct:fn(r[71]),
+        tot_jour_25:fn(r[1]),  tot_jour_26:fn(r[3]),  tot_jour_pct:fn(r[4]),
+        tot_sem_lbl:r[5]?String(r[5]):null,  tot_sem_25:fn(r[6]),  tot_sem_26:fn(r[7]),
+        tot_mois_lbl:r[9]?String(r[9]):null, tot_mois_25:fn(r[10]), tot_mois_26:fn(r[11]),
+        tot_an_25:fn(r[14]), tot_an_26:fn(r[15]), tot_an_pct:fn(r[16]),
+        alim_jour_25:fn(r[19]), alim_jour_26:fn(r[21]),
+        alim_sem_lbl:r[23]?String(r[23]):null, alim_sem_25:fn(r[24]), alim_sem_26:fn(r[25]),
+        alim_mois_lbl:r[27]?String(r[27]):null, alim_mois_25:fn(r[28]), alim_mois_26:fn(r[29]),
+        alim_an_25:fn(r[32]), alim_an_26:fn(r[33]), alim_an_pct:fn(r[34]),
+        tac_jour_25:fi(r[37]), tac_jour_26:fi(r[39]),
+        tac_sem_lbl:r[41]?String(r[41]):null, tac_sem_25:fi(r[42]), tac_sem_26:fi(r[43]),
+        tac_mois_lbl:r[45]?String(r[45]):null, tac_mois_25:fi(r[46]), tac_mois_26:fi(r[47]),
+        tac_an_25:fi(r[50]), tac_an_26:fi(r[51]), tac_an_pct:fn(r[52]),
+        pm_jour_25:fn(r[55]), pm_jour_26:fn(r[57]),
+        pm_sem_lbl:r[59]?String(r[59]):null, pm_sem_25:fn(r[60]), pm_sem_26:fn(r[61]),
+        pm_mois_lbl:r[63]?String(r[63]):null, pm_mois_25:fn(r[64]), pm_mois_26:fn(r[65]),
+        pm_an_25:fn(r[68]), pm_an_26:fn(r[69]), pm_an_pct:fn(r[70]),
       });
     }
 
-    // KPI secondaires — raw est déjà en raw:true, indices stables
+    // KPI secondaires (indices aussi -1)
     function readKpi(startRow, endRow, mc, v25c, v26c, dc, anRow, an25c, an26c, adc, pct) {
       var mois = {}, annuel = {};
       var fmt = function(x) {
         if (x == null || isNaN(x)) return null;
-        return pct ? Math.round(parseFloat(x) * 1000) / 10 : Math.round(parseFloat(x) * 100) / 100;
+        return pct ? Math.round(parseFloat(x)*1000)/10 : Math.round(parseFloat(x)*100)/100;
       };
       for (var i = startRow; i <= endRow && i < raw.length; i++) {
-        var r = raw[i];
-        if (!r) continue;
+        var r = raw[i]; if (!r) continue;
         var lbl = r[mc];
         if (lbl && ordre.indexOf(String(lbl)) >= 0 && !mois[String(lbl)]) {
-          mois[String(lbl)] = {
-            m25:  fmt(r[v25c]),
-            m26:  r[v26c] != null ? fmt(r[v26c]) : null,
-            diff: fmt(r[dc])
-          };
+          mois[String(lbl)] = { m25:fmt(r[v25c]), m26:r[v26c]!=null?fmt(r[v26c]):null, diff:fmt(r[dc]) };
         }
       }
       var ar = raw[anRow] || [];
-      annuel = {
-        an25: fmt(ar[an25c]),
-        an26: ar[an26c] != null ? fmt(ar[an26c]) : null,
-        diff: fmt(ar[adc])
-      };
-      return { mois: mois, annuel: annuel };
+      annuel = { an25:fmt(ar[an25c]), an26:ar[an26c]!=null?fmt(ar[an26c]):null, diff:fmt(ar[adc]) };
+      return { mois:mois, annuel:annuel };
     }
 
+    // KPI indices -1 vs openpyxl
     var newKpi = {
-      OEPE:  readKpi(3,  15, 77, 78, 79, 80, 3,  82, 83, 84, false),
-      R2P:   readKpi(3,  15, 90, 91, 92, 93, 3,  95, 96, 97, false),
-      OPH:   readKpi(3,  15, 99,100,101,102, 3, 104,105,106, false),
-      HELLO: readKpi(18, 30, 99,100,101,102, 18,104,105,106, true),
-      RS:    readKpi(33, 45, 99,100,101,102, 33,104,105,106, false),
+      OEPE:  readKpi(3,  15, 76,77,78,79,  3, 81,82,83, false),
+      R2P:   readKpi(3,  15, 89,90,91,92,  3, 94,95,96, false),
+      OPH:   readKpi(3,  15, 98,99,100,101, 3,103,104,105, false),
+      HELLO: readKpi(17, 29, 98,99,100,101, 17,103,104,105, true),
+      RS:    readKpi(32, 44, 98,99,100,101, 32,103,104,105, false),
     };
     return { rows: newRows, kpi: newKpi };
   }
