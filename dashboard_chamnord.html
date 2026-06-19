@@ -1078,60 +1078,114 @@ function xlsxImport(e) {
 
 function parseExcel(arrayBuffer, callback) {
   var workbook = XLSX.read(arrayBuffer, {type:'array', cellDates:true});
-  var ws = workbook.Sheets['CHAMNORD']||workbook.Sheets[workbook.SheetNames[0]];
-  var raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
-  var v=function(r,c){if(!r||c>=r.length)return null;var x=r[c];return(x==null||x==='')?null:x;};
-  var r2=function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*100)/100:null;}catch(e){return null;}};
-  var r0=function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)):null;}catch(e){return null;}};
-  var r4=function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*1000000)/1000000:null;}catch(e){return null;}};
-  var newRows=[];
-  for(var i=3;i<raw.length;i++){
-    var r=raw[i]; if(!r[1]) continue;
-    try{
-      var d; if(r[1] instanceof Date){d=r[1];}else if(typeof r[1]==='number'){
-        // Excel serial date number
-        var epoch=new Date(1899,11,30); d=new Date(epoch.getTime()+r[1]*86400000);
-      }else{d=new Date(r[1]);} if(!d||isNaN(d.getTime())||d.getFullYear()<2000) continue;
-      newRows.push({date:d.toISOString().slice(0,10),
-        tot_jour_25:r2(v(r,2)),tot_jour_26:r2(v(r,4)),tot_jour_pct:r4(v(r,5)),
-        tot_sem_lbl:v(r,6)?String(v(r,6)):null,tot_sem_25:r2(v(r,7)),tot_sem_26:r2(v(r,8)),
-        tot_mois_lbl:v(r,10)?String(v(r,10)):null,tot_mois_25:r2(v(r,11)),tot_mois_26:r2(v(r,12)),
-        tot_an_25:r2(v(r,15)),tot_an_26:r2(v(r,16)),tot_an_pct:r4(v(r,17)),
-        alim_jour_25:r2(v(r,20)),alim_jour_26:r2(v(r,22)),
-        alim_sem_lbl:v(r,24)?String(v(r,24)):null,alim_sem_25:r2(v(r,25)),alim_sem_26:r2(v(r,26)),
-        alim_mois_lbl:v(r,28)?String(v(r,28)):null,alim_mois_25:r2(v(r,29)),alim_mois_26:r2(v(r,30)),
-        alim_an_25:r2(v(r,33)),alim_an_26:r2(v(r,34)),alim_an_pct:r4(v(r,35)),
-        tac_jour_25:r0(v(r,38)),tac_jour_26:r0(v(r,40)),
-        tac_sem_lbl:v(r,42)?String(v(r,42)):null,tac_sem_25:r0(v(r,43)),tac_sem_26:r0(v(r,44)),
-        tac_mois_lbl:v(r,46)?String(v(r,46)):null,tac_mois_25:r0(v(r,47)),tac_mois_26:r0(v(r,48)),
-        tac_an_25:r0(v(r,51)),tac_an_26:r0(v(r,52)),tac_an_pct:r4(v(r,53)),
-        pm_jour_25:r2(v(r,56)),pm_jour_26:r2(v(r,58)),
-        pm_sem_lbl:v(r,60)?String(v(r,60)):null,pm_sem_25:r2(v(r,61)),pm_sem_26:r2(v(r,62)),
-        pm_mois_lbl:v(r,64)?String(v(r,64)):null,pm_mois_25:r2(v(r,65)),pm_mois_26:r2(v(r,66)),
-        pm_an_25:r2(v(r,69)),pm_an_26:r2(v(r,70)),pm_an_pct:r4(v(r,71)),
-      });
-    }catch(e2){}
-  }
-  var ordre=['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
-  function readKpiBlock(startRow,endRow,moisCol,v25Col,v26Col,difCol,anRow,an25Col,an26Col,anDifCol,pct){
-    var mois={},annuel={};
-    var fmt=function(x){return x==null?null:pct?Math.round(x*1000)/10:Math.round(x*100)/100;};
-    for(var ii=startRow;ii<=endRow;ii++){
-      var rr=raw[ii]; if(!rr)continue;
-      var lbl=rr[moisCol];
-      if(lbl&&ordre.indexOf(String(lbl))>=0){mois[String(lbl)]={m25:fmt(rr[v25Col]),m26:rr[v26Col]!=null?fmt(rr[v26Col]):null,diff:fmt(rr[difCol])};}
-    }
-    var ar=raw[anRow]||[]; annuel={an25:fmt(ar[an25Col]),an26:ar[an26Col]!=null?fmt(ar[an26Col]):null,diff:fmt(ar[anDifCol])};
-    return{mois:mois,annuel:annuel};
-  }
-  var newKpi={
-    OEPE: readKpiBlock(3,15,77,78,79,80,3,82,83,84,false),
-    R2P:  readKpiBlock(3,15,90,91,92,93,3,95,96,97,false),
-    OPH:  readKpiBlock(3,15,99,100,101,102,3,104,105,106,false),
-    HELLO:readKpiBlock(17,30,99,100,101,102,17,104,105,106,true),
-    RS:   readKpiBlock(32,45,99,100,101,102,32,104,105,106,false),
+
+  var SHEET_TO_ID = {
+    'CHAMNORD':           'chamnord',
+    'AIX LES BAINS':      'aix_les_bains',
+    'BELLEY':             'belley',
+    'ST ALBAN':           'st_alban',
+    'LES ABRETS':         'les_abrets',
+    'PONT DE BEAUVOISIN': 'pont_de_beauvoisin',
+    'FRANCIN':            'francin',
+    'VIVIERS DU LAC':     'viviers_du_lac'
   };
-  callback(newRows, newKpi);
+
+  var ordre = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+  var v  = function(r,c){if(!r||c>=r.length)return null;var x=r[c];return(x==null||x==='')?null:x;};
+  var r2 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*100)/100:null;}catch(e){return null;}};
+  var r0 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)):null;}catch(e){return null;}};
+  var r4 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*1000000)/1000000:null;}catch(e){return null;}};
+  var r1 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*1000)/10:null;}catch(e){return null;}};
+
+  function parseSheet(ws) {
+    var raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    var newRows = [];
+    for (var i=3; i<raw.length; i++) {
+      var r = raw[i]; if (!r || !r[1]) continue;
+      try {
+        var d;
+        if (r[1] instanceof Date) { d = r[1]; }
+        else if (typeof r[1]==='number') { var ep=new Date(1899,11,30); d=new Date(ep.getTime()+r[1]*86400000); }
+        else { d = new Date(r[1]); }
+        if (!d||isNaN(d.getTime())||d.getFullYear()<2000) continue;
+        newRows.push({date:d.toISOString().slice(0,10),
+          tot_jour_25:r2(v(r,2)),  tot_jour_26:r2(v(r,4)),  tot_jour_pct:r4(v(r,5)),
+          tot_sem_lbl:v(r,6)?String(v(r,6)):null,   tot_sem_25:r2(v(r,7)),   tot_sem_26:r2(v(r,8)),
+          tot_mois_lbl:v(r,10)?String(v(r,10)):null, tot_mois_25:r2(v(r,11)), tot_mois_26:r2(v(r,12)),
+          tot_an_25:r2(v(r,15)), tot_an_26:r2(v(r,16)), tot_an_pct:r4(v(r,17)),
+          alim_jour_25:r2(v(r,20)), alim_jour_26:r2(v(r,22)),
+          alim_sem_lbl:v(r,24)?String(v(r,24)):null, alim_sem_25:r2(v(r,25)), alim_sem_26:r2(v(r,26)),
+          alim_mois_lbl:v(r,28)?String(v(r,28)):null, alim_mois_25:r2(v(r,29)), alim_mois_26:r2(v(r,30)),
+          alim_an_25:r2(v(r,33)), alim_an_26:r2(v(r,34)), alim_an_pct:r4(v(r,35)),
+          tac_jour_25:r0(v(r,38)), tac_jour_26:r0(v(r,40)),
+          tac_sem_lbl:v(r,42)?String(v(r,42)):null, tac_sem_25:r0(v(r,43)), tac_sem_26:r0(v(r,44)),
+          tac_mois_lbl:v(r,46)?String(v(r,46)):null, tac_mois_25:r0(v(r,47)), tac_mois_26:r0(v(r,48)),
+          tac_an_25:r0(v(r,51)), tac_an_26:r0(v(r,52)), tac_an_pct:r4(v(r,53)),
+          pm_jour_25:r2(v(r,56)), pm_jour_26:r2(v(r,58)),
+          pm_sem_lbl:v(r,60)?String(v(r,60)):null, pm_sem_25:r2(v(r,61)), pm_sem_26:r2(v(r,62)),
+          pm_mois_lbl:v(r,64)?String(v(r,64)):null, pm_mois_25:r2(v(r,65)), pm_mois_26:r2(v(r,66)),
+          pm_an_25:r2(v(r,69)), pm_an_26:r2(v(r,70)), pm_an_pct:r4(v(r,71)),
+        });
+      } catch(e2) {}
+    }
+
+    // KPI secondaires
+    function readKpi(rows, mc,v25c,v26c,dc, anRow,an25c,an26c,adc, pct) {
+      var mois={}, annuel={};
+      var fmt=function(x){return x==null?null:pct?Math.round(parseFloat(x)*1000)/10:Math.round(parseFloat(x)*100)/100;};
+      rows.forEach(function(r){
+        var lbl=v(r,mc);
+        if(lbl&&ordre.indexOf(String(lbl))>=0&&!mois[String(lbl)]){
+          mois[String(lbl)]={m25:fmt(v(r,v25c)),m26:v(r,v26c)!=null?fmt(v(r,v26c)):null,diff:fmt(v(r,dc))};
+        }
+      });
+      var ar = rows[0]||[];
+      annuel={an25:fmt(v(ar,an25c)),an26:v(ar,an26c)!=null?fmt(v(ar,an26c)):null,diff:fmt(v(ar,adc))};
+      return{mois:mois,annuel:annuel};
+    }
+
+    var newKpi = {
+      OEPE:  readKpi(raw, 77,78,79,80, 3,82,83,84, false),
+      R2P:   readKpi(raw, 90,91,92,93, 3,95,96,97, false),
+      OPH:   readKpi(raw, 99,100,101,102, 3,104,105,106, false),
+      HELLO: readKpi(raw.slice(17,31), 99,100,101,102, 0,104,105,106, true),
+      RS:    readKpi(raw.slice(32,46), 99,100,101,102, 0,104,105,106, false),
+    };
+
+    return {rows: newRows, kpi: newKpi};
+  }
+
+  // Parser toutes les feuilles et mettre à jour le registry
+  var firstRestoId = null;
+  var firstRows    = null;
+  var firstKpi     = null;
+
+  workbook.SheetNames.forEach(function(sheetName) {
+    var restoId = SHEET_TO_ID[sheetName];
+    if (!restoId) return;
+    var ws = workbook.Sheets[sheetName];
+    if (!ws) return;
+    var result = parseSheet(ws);
+    if (!result.rows.length) return;
+
+    // Mettre à jour le registry si le restaurant existe
+    if (RESTAURANTS_REGISTRY[restoId]) {
+      RESTAURANTS_REGISTRY[restoId].data  = result.rows;
+      RESTAURANTS_REGISTRY[restoId].oepe  = result.kpi.OEPE;
+      RESTAURANTS_REGISTRY[restoId].r2p   = result.kpi.R2P;
+      RESTAURANTS_REGISTRY[restoId].oph   = result.kpi.OPH;
+      RESTAURANTS_REGISTRY[restoId].hello = result.kpi.HELLO;
+      RESTAURANTS_REGISTRY[restoId].rs    = result.kpi.RS;
+    }
+
+    if (!firstRestoId) {
+      firstRestoId = restoId;
+      firstRows    = result.rows;
+      firstKpi     = result.kpi;
+    }
+  });
+
+  callback(firstRows || [], firstKpi || {});
 }
 
 // ════════════════════ SYNC ONEDRIVE ════════════════════
@@ -1158,10 +1212,17 @@ async function loadFromOneDrive() {
       await new Promise(function(resolve, reject) {
         parseExcel(buffer, function(newRows, newKpi) {
           try {
-            DATA = newRows;
-            Object.assign(OEPE, newKpi.OEPE||{}); Object.assign(R2P, newKpi.R2P||{});
-            Object.assign(OPH, newKpi.OPH||{});   Object.assign(HELLO, newKpi.HELLO||{});
-            Object.assign(RS, newKpi.RS||{});
+            // parseExcel a déjà mis à jour RESTAURANTS_REGISTRY pour toutes les feuilles
+            // On recharge maintenant le restaurant courant
+            var r = RESTAURANTS_REGISTRY[currentResto];
+            if (r && r.data && r.data.length) {
+              DATA  = r.data;
+              OEPE  = JSON.parse(JSON.stringify(r.oepe  || OEPE));
+              R2P   = JSON.parse(JSON.stringify(r.r2p   || R2P));
+              OPH   = JSON.parse(JSON.stringify(r.oph   || OPH));
+              HELLO = JSON.parse(JSON.stringify(r.hello || HELLO));
+              RS    = JSON.parse(JSON.stringify(r.rs    || RS));
+            }
             setSyncStatus('ok','Mis à jour · '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
             init();
             resolve();
