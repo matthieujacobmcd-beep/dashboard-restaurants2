@@ -1076,7 +1076,10 @@ function xlsxImport(e) {
     try {
       parseExcel(ev.target.result, function(newRows, newKpi) {
         if (!newRows || newRows.length === 0) {
-          msg.textContent='❌ Aucune donnée trouvée dans la feuille CHAMNORD.'; return;
+          // Garder les données intégrées, juste recharger le restaurant courant
+          msg.textContent='⚠️ Import partiel — données intégrées conservées.';
+          init();
+          return;
         }
         // Compter combien de restaurants ont été mis à jour
         var updated = Object.keys(RESTAURANTS_REGISTRY).filter(function(id){
@@ -1160,9 +1163,11 @@ function parseExcel(arrayBuffer, callback) {
     };
 
     var newRows = [];
+    var _logged = false;
     for (var i = 3; i < raw.length; i++) {
       var r = raw[i];
       if (!r || r[0] == null) continue;
+      if (!_logged) { console.log('parseSheet first row[0]:', r[0], typeof r[0]); _logged=true; }
       var dateStr = fmtDate(r[0]);  // col A = index 0
       if (!dateStr) continue;
       newRows.push({
