@@ -1166,6 +1166,9 @@ function parseExcel(arrayBuffer, callback) {
     };
 
     var newRows = [];
+    // Log pour debug : voir les 3 premières valeurs de date
+    if (raw[3]) console.log('raw[3][1]:', raw[3][1], 'type:', typeof raw[3][1], JSON.stringify(raw[3][1]));
+    if (raw[4]) console.log('raw[4][1]:', raw[4][1], 'type:', typeof raw[4][1]);
     for (var i = 3; i < raw.length; i++) {
       var r = raw[i];
       if (!r || r[1] == null) continue;
