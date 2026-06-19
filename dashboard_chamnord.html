@@ -1133,8 +1133,10 @@ function parseExcel(arrayBuffer, callback) {
   var r1 = function(x){try{return x!=null&&!isNaN(x)?Math.round(parseFloat(x)*1000)/10:null;}catch(e){return null;}};
 
   function parseSheet(ws) {
-    // raw:true = valeurs numériques brutes (dates = numéro série Excel)
-    var raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+    // Lire avec raw:false pour avoir les dates en string et les % formatés
+    // et raw:true pour les valeurs numériques brutes des KPI
+    var rawDates = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false, dateNF:'yyyy-mm-dd'});
+    var raw      = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
     
     var fn = function(x) {
       if (x == null) return null;
@@ -1148,31 +1150,20 @@ function parseExcel(arrayBuffer, callback) {
     };
     var fmtDate = function(x) {
       if (x == null) return null;
-      try {
-        // Objet Date JS (cellDates:true)
-        if (x instanceof Date || (typeof x === 'object' && typeof x.getTime === 'function')) {
-          var iso = x.toISOString().slice(0,10);
-          return parseInt(iso.slice(0,4)) >= 2000 ? iso : null;
-        }
-        // Numéro série Excel
-        if (typeof x === 'number' && x > 40000) {
-          var d = new Date(Date.UTC(1899, 11, 30) + x * 86400000);
-          return d.getFullYear() >= 2000 ? d.toISOString().slice(0,10) : null;
-        }
-        // String date
-        if (typeof x === 'string' && x.length >= 6) {
-          var d2 = new Date(x);
-          return (!isNaN(d2.getTime()) && d2.getFullYear() >= 2000) ? d2.toISOString().slice(0,10) : null;
-        }
-      } catch(e) {}
+      // Avec raw:false et dateNF:'yyyy-mm-dd', les dates sont des strings "2026-01-01"
+      if (typeof x === 'string') {
+        var d = new Date(x);
+        return (!isNaN(d.getTime()) && d.getFullYear() >= 2000) ? x.slice(0,10) : null;
+      }
       return null;
     };
 
     var newRows = [];
     for (var i = 3; i < raw.length; i++) {
-      var r = raw[i];
-      if (!r || r[1] == null) continue;
-      var dateStr = fmtDate(r[1]);
+      var r  = raw[i];       // valeurs numériques
+      var rd = rawDates[i];  // dates en string
+      if (!r || !rd || rd[1] == null) continue;
+      var dateStr = fmtDate(rd[1]);
       if (!dateStr) continue;
       newRows.push({
         date: dateStr,
